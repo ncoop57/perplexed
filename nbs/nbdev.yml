@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "perplexed"
+  site-url: "https://ncoop57.github.io/perplexed"
+  description: "Find out where your model is perplexed!"
+  repo-branch: main
+  repo-url: "https://github.com/ncoop57/perplexed"
