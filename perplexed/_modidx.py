@@ -5,4 +5,6 @@ d = { 'settings': { 'branch': 'main',
                 'doc_host': 'https://ncoop57.github.io',
                 'git_url': 'https://github.com/ncoop57/perplexed',
                 'lib_path': 'perplexed'},
-  'syms': {'perplexed.core': {'perplexed.core.foo': ('core.html#foo', 'perplexed/core.py')}}}
+  'syms': { 'perplexed.core': { 'perplexed.core.get_counts': ('core.html#get_counts', 'perplexed/core.py'),
+                                'perplexed.core.loss_func': ('core.html#loss_func', 'perplexed/core.py'),
+                                'perplexed.core.perplexed': ('core.html#perplexed', 'perplexed/core.py')}}}
