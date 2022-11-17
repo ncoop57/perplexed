@@ -20,7 +20,7 @@ def loss_func(logits, labels):
     return loss
 
 # %% ../nbs/00_core.ipynb 5
-def get_counts(model, tokenizer, batch, semantic_column):
+def get_counts(model, tokenizer, batch, semantic_column, n_gram):
     input_ids = torch.tensor(batch["input_ids"])
     attention_mask = torch.tensor(batch["attention_mask"])
     with torch.no_grad():
@@ -30,8 +30,13 @@ def get_counts(model, tokenizer, batch, semantic_column):
     # token in the input
     loss_cnt = Counter()
     token_cnt = Counter()
-    for i, token in enumerate(input_ids[1:]): # Skip the first token since labels are shifted
-        token = tokenizer.decode(token)
+    for i, token_id in enumerate(input_ids[1:]): # Skip the first token since labels are shifted
+        # check if index is greater than n_gram
+        if i >= n_gram and n_gram > 1:
+            # get the n_gram before and upto the current token
+            token = tokenizer.decode(input_ids[i-n_gram:i+1])
+        else:
+            token = tokenizer.decode(token_id)
         loss_cnt[token] += loss[i].item()
         token_cnt[token] += 1
     
@@ -74,7 +79,7 @@ def perplexed(
     total_token_cnt = Counter()
     for batch in tokenized_dataset:
         # calculate the loss for each token
-        loss_cnt, token_cnt = get_counts(model, tokenizer, batch, semantic_column)
+        loss_cnt, token_cnt = get_counts(model, tokenizer, batch, semantic_column, n_gram)
         # add the loss and token counts to the total
         total_loss_cnt += loss_cnt
         total_token_cnt += token_cnt
