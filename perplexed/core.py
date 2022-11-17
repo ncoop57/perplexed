@@ -20,7 +20,7 @@ def loss_func(logits, labels):
     return loss
 
 # %% ../nbs/00_core.ipynb 5
-def get_counts(model, tokenizer, batch):
+def get_counts(model, tokenizer, batch, semantic_column):
     input_ids = torch.tensor(batch["input_ids"])
     attention_mask = torch.tensor(batch["attention_mask"])
     with torch.no_grad():
@@ -30,10 +30,15 @@ def get_counts(model, tokenizer, batch):
     # token in the input
     loss_cnt = Counter()
     token_cnt = Counter()
-    for i, token in enumerate(input_ids[1:]):
+    for i, token in enumerate(input_ids[1:]): # Skip the first token since labels are shifted
         token = tokenizer.decode(token)
         loss_cnt[token] += loss[i].item()
         token_cnt[token] += 1
+    
+        if semantic_column != None:
+            semantic = batch[semantic_column][i]
+            loss_cnt[semantic] += loss[i].item()
+            token_cnt[semantic] += 1
     return loss_cnt, token_cnt
 
 # %% ../nbs/00_core.ipynb 6
@@ -42,7 +47,8 @@ def perplexed(
     dataset: datasets.Dataset, # The dataset to calculate the perplexity on.
     tokenizer: transformers.PreTrainedTokenizer = None, # The tokenizer to use to tokenize the dataset. If not provided, the tokenizer associated with the model will be used.
     column: str = "text", # The column of the dataset to calculate the perplexity on.
-    semantic_column: str = None, # The column of the dataset to calculate the semantic perplexity on.
+    semantic_column: str = None, # The column of the dataset to calculate the semantic perplexity on such as NER tags.
+    n_gram: int = 1, # The n-gram to calculate the perplexity on.
     batch_size: int = 1, # The batch size to use when calculating the perplexity.
     device: str = "cuda", # The device to use when calculating the perplexity.
     return_tokens: bool = False, # Whether to return the tokens counts along with the perplexity.
@@ -68,7 +74,7 @@ def perplexed(
     total_token_cnt = Counter()
     for batch in tokenized_dataset:
         # calculate the loss for each token
-        loss_cnt, token_cnt = get_counts(model, tokenizer, batch)
+        loss_cnt, token_cnt = get_counts(model, tokenizer, batch, semantic_column)
         # add the loss and token counts to the total
         total_loss_cnt += loss_cnt
         total_token_cnt += token_cnt
