@@ -20,11 +20,7 @@ def loss_func(logits, labels):
     return loss
 
 # %% ../nbs/00_core.ipynb 5
-<<<<<<< HEAD
-def get_counts(model, tokenizer, batch, semantic_column, n_gram):
-=======
-def get_counts(model, tokenizer, batch, return_distributions: bool = False):
->>>>>>> main
+def get_counts(model, tokenizer, batch, semantic_column: str, return_distributions: bool):
     input_ids = torch.tensor(batch["input_ids"])
     attention_mask = torch.tensor(batch["attention_mask"])
     with torch.no_grad():
@@ -34,25 +30,14 @@ def get_counts(model, tokenizer, batch, return_distributions: bool = False):
     # token in the input
     loss_cnt = defaultdict(list) if return_distributions else Counter()
     token_cnt = Counter()
-<<<<<<< HEAD
-    for i, token_id in enumerate(input_ids[1:]): # Skip the first token since labels are shifted
-        # check if index is greater than n_gram
-        if i >= n_gram and n_gram > 1:
-            # get the n_gram before and upto the current token
-            token = tokenizer.decode(input_ids[i-n_gram:i+1])
-        else:
-            token = tokenizer.decode(token_id)
-        loss_cnt[token] += loss[i].item()
-=======
     for i, token in enumerate(input_ids[1:]):
         token = tokenizer.decode(token)
         loss_cnt[token] += [loss[i].item()] if return_distributions else loss[i].item()
->>>>>>> main
         token_cnt[token] += 1
     
         if semantic_column != None:
             semantic = batch[semantic_column][i]
-            loss_cnt[semantic] += loss[i].item()
+            loss_cnt[semantic] += [loss[i].item()] if return_distributions else loss[i].item()
             token_cnt[semantic] += 1
     return loss_cnt, token_cnt
 
@@ -76,9 +61,10 @@ def perplexed(
         tokenizer = model.config.tokenizer_class.from_pretrained(model.config.pretrained_model_name_or_path)
 
     # Tokenize the dataset
+    batched = batch_size > 1
     tokenized_dataset = dataset.map(
-        lambda x: tokenizer(x[column], return_tensors="pt", truncation=True),
-        batched=True,
+        lambda x: tokenizer(x[column], truncation=True),
+        batched=batched,
         batch_size=batch_size,
         remove_columns=dataset.column_names,
     )
@@ -89,16 +75,9 @@ def perplexed(
     total_loss_cnt = defaultdict(list) if return_distributions else Counter()
     total_token_cnt = Counter()
     for batch in tokenized_dataset:
-<<<<<<< HEAD
-        # calculate the loss for each token
-        loss_cnt, token_cnt = get_counts(model, tokenizer, batch, semantic_column, n_gram)
-        # add the loss and token counts to the total
-        total_loss_cnt += loss_cnt
-=======
-        loss_cnt, token_cnt = get_counts(model, tokenizer, batch, return_distributions)
+        loss_cnt, token_cnt = get_counts(model, tokenizer, batch, semantic_column, return_distributions)
         for token, loss in loss_cnt.items():
             total_loss_cnt[token] += loss
->>>>>>> main
         total_token_cnt += token_cnt
     
     # Calculate the perplexity
