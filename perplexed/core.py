@@ -5,6 +5,7 @@ __all__ = ['loss_func', 'get_counts', 'perplexed']
 
 # %% ../nbs/00_core.ipynb 2
 import datasets
+import os
 import torch
 import transformers
 
@@ -28,13 +29,11 @@ def loss_func(logits, labels):
 def get_counts(model, tokenizer, batch, semantic_column: str, return_distributions: bool):
     input_ids = batch["input_ids"]
     attention_mask = batch["attention_mask"]
-    # input_ids = torch.tensor(batch["input_ids"])
-    # attention_mask = torch.tensor(batch["attention_mask"])
+
     with torch.no_grad():
         outputs = model(input_ids, attention_mask=attention_mask, labels=input_ids, return_dict=True)
     loss = loss_func(outputs.logits, input_ids)
-    # print(loss.shape)
-    # print(input_ids.shape)
+
     # Add the losses to the counter for each 
     # token in the input
     loss_cnt = defaultdict(list) if return_distributions else Counter()
@@ -46,18 +45,10 @@ def get_counts(model, tokenizer, batch, semantic_column: str, return_distributio
             token_cnt[token] += 1
 
             if semantic_column != None:
-                semantic = batch[semantic_column][i]
-                loss_cnt[semantic] += [loss[i].item()] if return_distributions else loss[i].item()
+                semantic = batch[semantic_column][i][j]
+                loss_cnt[semantic] += [loss[i][j].item()] if return_distributions else loss[i][j].item()
                 token_cnt[semantic] += 1
-    # for i, token in enumerate(input_ids[1:]):
-    #     token = tokenizer.decode(token)
-    #     loss_cnt[token] += [loss[i].item()] if return_distributions else loss[i].item()
-    #     token_cnt[token] += 1
-    
-    #     if semantic_column != None:
-    #         semantic = batch[semantic_column][i]
-    #         loss_cnt[semantic] += [loss[i].item()] if return_distributions else loss[i].item()
-    #         token_cnt[semantic] += 1
+
     return loss_cnt, token_cnt
 
 # %% ../nbs/00_core.ipynb 6
@@ -69,6 +60,7 @@ def perplexed(
     semantic_column: str = None, # The column of the dataset to calculate the semantic perplexity on such as NER tags.
     n_gram: int = 1, # The n-gram to calculate the perplexity on.
     batch_size: int = 1, # The batch size to use when calculating the perplexity.
+    num_proc: int = os.cpu_count(), # The number of processes to use when tokenizing the dataset.
     device: str = "cuda", # The device to use when calculating the perplexity.
     collate_fn = default_data_collator, # The collate function to use when calculating the perplexity.
     return_tokens: bool = False, # Whether to return the tokens counts along with the perplexity.
@@ -87,6 +79,7 @@ def perplexed(
         batched=batched,
         batch_size=batch_size,
         remove_columns=dataset.column_names,
+        num_proc=num_proc,
     )
 
     # Create a dataloader for the dataset
@@ -97,7 +90,7 @@ def perplexed(
     total_token_cnt = Counter()
     for batch in track(dataloader, description="Calculating perplexity"):
         # Move the batch to the device
-        batch = {k: v.to(device) for k, v in batch.items()}
+        batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
         loss_cnt, token_cnt = get_counts(model, tokenizer, batch, semantic_column, return_distributions)
         for token, loss in loss_cnt.items():
             total_loss_cnt[token] += loss
