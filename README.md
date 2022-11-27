@@ -34,6 +34,7 @@ an example of how to use it:
 from perplexed.core import perplexed
 
 tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
+tokenizer.pad_token = tokenizer.eos_token
 model = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-neo-125M")
 
 dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="test").select(range(100))
