@@ -16,7 +16,13 @@ from torch.utils.data import DataLoader
 from transformers import default_data_collator
 
 # %% ../nbs/00_core.ipynb 4
-def loss_func(logits, labels):
+def loss_func(
+    logits, # the model's output
+    labels  # the labels to calculate the cross entropy loss against
+):          # the loss per token of shape (batch_size, seq_len)
+    """
+    Calculates the cross entropy loss for the model's output and the labels.
+    """
     shift_logits = logits[..., :-1, :].contiguous()
     shift_labels = labels[..., 1:].contiguous()
     loss_fct = CrossEntropyLoss(reduction="none")
@@ -26,7 +32,16 @@ def loss_func(logits, labels):
     return loss
 
 # %% ../nbs/00_core.ipynb 5
-def get_counts(model, tokenizer, batch, semantic_column: str, return_distributions: bool):
+def get_counts(
+    model,                      # the model to use for predictions
+    tokenizer,                  # the tokenizer to use for encoding
+    batch,                      # the batch to use for predictions
+    semantic_column: str,       # the column to use for semantic predictions
+    return_distributions: bool  # whether to return the distributions
+):                              # the counts for the losses and tokens
+    """
+    Returns the counts for the losses and tokens.
+    """
     input_ids = batch["input_ids"]
     attention_mask = batch["attention_mask"]
 
