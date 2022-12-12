@@ -78,6 +78,7 @@ def perplexed(
     num_proc: int = os.cpu_count(), # The number of processes to use when tokenizing the dataset.
     device: str = "cuda", # The device to use when calculating the perplexity.
     collate_fn = default_data_collator, # The collate function to use when calculating the perplexity.
+    pass_row: bool = False, # Whether to pass the row to the tokenizer.
     return_tokens: bool = False, # Whether to return the tokens counts along with the perplexity.
     return_distributions: bool = False, # Whether to return the perplexity distributions instead of the perplexity.
 ): # The perplexity of the model on the dataset or a tuple of the perplexity and the token counts.
@@ -90,11 +91,13 @@ def perplexed(
     # Tokenize the dataset
     batched = batch_size > 1
     tokenized_dataset = dataset.map(
-        lambda x: tokenizer(x[column], truncation=True, padding="max_length"),
+        lambda x: tokenizer(x[column], truncation=True, padding="max_length")
+        if not pass_row else tokenizer(x, truncation=True, padding="max_length"),
         batched=batched,
         batch_size=batch_size,
         remove_columns=dataset.column_names,
         num_proc=num_proc,
+        desc="Tokenizing dataset"
     )
 
     # Create a dataloader for the dataset
@@ -106,7 +109,13 @@ def perplexed(
     for batch in track(dataloader, description="Calculating perplexity"):
         # Move the batch to the device
         batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
-        loss_cnt, token_cnt = get_counts(model, tokenizer, batch, semantic_column, return_distributions)
+        loss_cnt, token_cnt = get_counts(
+            model,
+            tokenizer,
+            batch,
+            semantic_column,
+            return_distributions
+        )
         for token, loss in loss_cnt.items():
             total_loss_cnt[token] += loss
         total_token_cnt += token_cnt
@@ -115,7 +124,7 @@ def perplexed(
     perplexity = defaultdict(list) if return_distributions else Counter()
     for token, loss in total_loss_cnt.items():
         if return_distributions:
-            perplexity[token] = list(map(lambda x: 2 ** x, loss))
+            perplexity[token] = list(map(lambda x: torch.exp(torch.tensor(x)).item(), loss))
         else:
             perplexity[token] = torch.exp(torch.tensor(loss / total_token_cnt[token])).item()
     
