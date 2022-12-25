@@ -9,29 +9,34 @@ import os
 import torch
 import transformers
 
+import torch.nn.functional as F
+
 from collections import Counter, defaultdict
 from rich.progress import track
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader
 from transformers import default_data_collator
 
-# %% ../nbs/00_core.ipynb 4
+# %% ../nbs/00_core.ipynb 9
 def loss_func(
-    logits, # the model's output
-    labels  # the labels to calculate the cross entropy loss against
-):          # the loss per token of shape (batch_size, seq_len)
+    logits,                 # the model's output
+    labels,                 # the labels to calculate the cross entropy loss against
+    use_custom_loss=False   # whether to use the custom loss function
+):                          # the loss per token of shape (batch_size, seq_len)
     """
     Calculates the cross entropy loss for the model's output and the labels.
     """
     shift_logits = logits[..., :-1, :].contiguous()
     shift_labels = labels[..., 1:].contiguous()
-    loss_fct = CrossEntropyLoss(reduction="none")
-    loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
-    # reshape to (batch_size, sequence_length)
+    if use_custom_loss:
+        loss = cross_entropy_with_logits(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+    else:
+        loss_fct = CrossEntropyLoss(reduction="none")
+        loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
     loss = loss.view(*shift_labels.size())
     return loss
 
-# %% ../nbs/00_core.ipynb 5
+# %% ../nbs/00_core.ipynb 11
 def get_counts(
     model,                      # the model to use for predictions
     tokenizer,                  # the tokenizer to use for encoding
@@ -61,12 +66,14 @@ def get_counts(
 
             if semantic_column != None:
                 semantic = batch[semantic_column][i][j]
-                loss_cnt[semantic] += [loss[i][j].item()] if return_distributions else loss[i][j].item()
+                loss_cnt[semantic] += [
+                    loss[i][j].item()
+                ] if return_distributions else loss[i][j].item()
                 token_cnt[semantic] += 1
 
     return loss_cnt, token_cnt
 
-# %% ../nbs/00_core.ipynb 6
+# %% ../nbs/00_core.ipynb 12
 def perplexed(
     model: transformers.PreTrainedModel, # The model to calculate the perplexity of.
     dataset: datasets.Dataset, # The dataset to calculate the perplexity on.
@@ -81,6 +88,7 @@ def perplexed(
     pass_row: bool = False, # Whether to pass the row to the tokenizer.
     return_tokens: bool = False, # Whether to return the tokens counts along with the perplexity.
     return_distributions: bool = False, # Whether to return the perplexity distributions instead of the perplexity.
+    compute_perplexity: bool = True, # Whether to compute the perplexity. If False, the cross entropy will be returned instead.
 ): # The perplexity of the model on the dataset or a tuple of the perplexity and the token counts.
     """
     Calculate the perplexity of a model on a dataset.
@@ -123,10 +131,16 @@ def perplexed(
     # Calculate the perplexity
     perplexity = defaultdict(list) if return_distributions else Counter()
     for token, loss in total_loss_cnt.items():
-        if return_distributions:
-            perplexity[token] = list(map(lambda x: torch.exp(torch.tensor(x)).item(), loss))
+        if compute_perplexity:
+            if return_distributions:
+                perplexity[token] = list(map(lambda x: torch.exp(torch.tensor(x)).item(), loss))
+            else:
+                perplexity[token] = torch.exp(torch.tensor(loss / total_token_cnt[token])).item()
         else:
-            perplexity[token] = torch.exp(torch.tensor(loss / total_token_cnt[token])).item()
+            if return_distributions:
+                perplexity[token] = loss
+            else:
+                perplexity[token] = loss / total_token_cnt[token]
     
     if return_tokens:
         return perplexity, total_token_cnt
