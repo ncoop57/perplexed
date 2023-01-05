@@ -29,10 +29,16 @@ def loss_func(
     shift_logits = logits[..., :-1, :].contiguous()
     shift_labels = labels[..., 1:].contiguous()
     if use_custom_loss:
-        loss = cross_entropy_with_logits(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+        loss = cross_entropy_with_logits(
+            shift_logits.view(-1, shift_logits.size(-1)),
+            shift_labels.view(-1)
+        )
     else:
         loss_fct = CrossEntropyLoss(reduction="none")
-        loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+        loss = loss_fct(
+            shift_logits.view(-1, shift_logits.size(-1)),
+            shift_labels.view(-1)
+        )
     loss = loss.view(*shift_labels.size())
     return loss
 
@@ -51,7 +57,12 @@ def get_counts(
     attention_mask = batch["attention_mask"]
 
     with torch.no_grad():
-        outputs = model(input_ids, attention_mask=attention_mask, labels=input_ids, return_dict=True)
+        outputs = model(
+            input_ids,
+            attention_mask=attention_mask,
+            labels=input_ids,
+            return_dict=True
+        )
     loss = loss_func(outputs.logits, input_ids)
 
     # Add the losses to the counter for each 
