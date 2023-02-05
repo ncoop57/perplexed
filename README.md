@@ -41,7 +41,9 @@ dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="test").select(ran
 # filter out empty strings
 dataset = dataset.filter(lambda x: len(x["text"]) > 0)
 
-perplexity_cnt = perplexed(model, dataset, tokenizer=tokenizer, column="text", batch_size=1, device="cpu")
+perplexity_cnt = perplexed(
+    model, dataset, tokenizer=tokenizer, column="text", batch_size=1, device="cpu"
+)
 perplexity_cnt.most_common(10)
 ```
 
