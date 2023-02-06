@@ -21,7 +21,7 @@ def parse_args():
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_proc", type=int, default=64)
-    parser.add_argument("--output_dir", type=str, default="data/perplexities")
+    parser.add_argument("--dataset_output_dir", type=str, default="data/perplexities/tokenized_dataset")
     return parser.parse_args()
 
 def code_collator(batch):
@@ -44,31 +44,16 @@ ds = load_from_disk(args.dataset_path)
 py_tokenizer = CodeTokenizer.from_pretrained(args.model_name, args.tokenizer_language, padding_token="<|endoftext|>")
 tokenizer = partial(tokenizer_wrapper, py_tokenizer, column=args.dataset_column)
 tokenizer.decode = py_tokenizer.decode
-tokenizer.pad_token = py_tokenizer.tokenizer.pad_token
 
-model = AutoModelForCausalLM.from_pretrained(args.model_name, trust_remote_code=True)
-model = model.to(args.device)
-cross_dist, token_cnt = perplexed(
-    model,
-    ds,
-    tokenizer=tokenizer,
-    column=args.dataset_column,
-    semantic_column=args.semantic_column,
+column = args.dataset_column
+pass_row=True
+tokenized_dataset = ds.map(
+    lambda x: tokenizer(x[column], truncation=True, padding="max_length")
+    if not pass_row else tokenizer(x, truncation=True, padding="max_length"),
+    batched=True if args.batch_size > 1 else False,
     batch_size=args.batch_size,
     num_proc=args.num_proc,
-    device=args.device,
-    collate_fn=code_collator,
-    pass_row=True,
-    return_tokens=True,
-    return_distributions=True,
-    compute_perplexity=False,
+    desc="Tokenizing dataset"
 )
 
-# Save the cross entropy and token count
-output_dir = Path(args.output_dir)
-output_dir.mkdir(parents=True, exist_ok=True)
-with open(output_dir / "cross_entropy.pkl", "wb") as f:
-    pickle.dump(cross_dist, f)
-
-with open(output_dir / "token_cnt.pkl", "wb") as f:
-    pickle.dump(token_cnt, f)
+tokenized_dataset.save_to_disk(args.dataset_output_dir)

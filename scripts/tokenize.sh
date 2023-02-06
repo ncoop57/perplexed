@@ -1,6 +1,6 @@
 #! /bin/bash
 
-python calculate_perplexities.py \
+python tokenize_dataset.py \
     --dataset_path /home/toolkit/perplexed_data/dataset_random_10pct \
     --dataset_column code \
     --semantic_column merged_ast \
@@ -9,4 +9,4 @@ python calculate_perplexities.py \
     --device cuda \
     --batch_size 32 \
     --num_proc 48 \
-    --output_dir /home/toolkit/perplexed_data/perplexities
+    --dataset_output_dir /home/toolkit/perplexed_data/tokenized_dataset_random_10pct
