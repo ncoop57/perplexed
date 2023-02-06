@@ -17,7 +17,7 @@ from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader
 from transformers import default_data_collator
 
-# %% ../nbs/00_core.ipynb 9
+# %% ../nbs/00_core.ipynb 4
 def loss_func(
     logits,                 # the model's output
     labels,                 # the labels to calculate the cross entropy loss against
@@ -28,21 +28,15 @@ def loss_func(
     """
     shift_logits = logits[..., :-1, :].contiguous()
     shift_labels = labels[..., 1:].contiguous()
-    if use_custom_loss:
-        loss = cross_entropy_with_logits(
-            shift_logits.view(-1, shift_logits.size(-1)),
-            shift_labels.view(-1)
-        )
-    else:
-        loss_fct = CrossEntropyLoss(reduction="none")
-        loss = loss_fct(
-            shift_logits.view(-1, shift_logits.size(-1)),
-            shift_labels.view(-1)
-        )
+    loss_fct = CrossEntropyLoss(reduction="none")
+    loss = loss_fct(
+        shift_logits.view(-1, shift_logits.size(-1)),
+        shift_labels.view(-1)
+    )
     loss = loss.view(*shift_labels.size())
     return loss
 
-# %% ../nbs/00_core.ipynb 11
+# %% ../nbs/00_core.ipynb 6
 def get_counts(
     model,                      # the model to use for predictions
     tokenizer,                  # the tokenizer to use for encoding
@@ -75,7 +69,7 @@ def get_counts(
             loss_cnt[token] += [loss[i][j].item()] if return_distributions else loss[i][j].item()
             token_cnt[token] += 1
 
-            if semantic_column != None:
+            if semantic_column != None and token != tokenizer.pad_token:
                 semantic = batch[semantic_column][i][j]
                 loss_cnt[semantic] += [
                     loss[i][j].item()
@@ -84,7 +78,7 @@ def get_counts(
 
     return loss_cnt, token_cnt
 
-# %% ../nbs/00_core.ipynb 12
+# %% ../nbs/00_core.ipynb 7
 def perplexed(
     model: transformers.PreTrainedModel, # The model to calculate the perplexity of.
     dataset: datasets.Dataset, # The dataset to calculate the perplexity on.
